@@ -45,10 +45,87 @@ mod windows {
 
     use windows::{Win32::{Security::{PSECURITY_DESCRIPTOR, Authorization::{SE_OBJECT_TYPE, SE_FILE_OBJECT, GetNamedSecurityInfoW}, OWNER_SECURITY_INFORMATION, GROUP_SECURITY_INFORMATION}, Foundation::PSID, System::Memory::LocalFree}, core::PCWSTR};
 
+    use windows::Win32::Foundation::{GetLastError};
+    use windows::Win32::Security::{LookupAccountSidW, SidTypeUnknown};
+    use windows::core::{PWSTR};
+
     pub struct NamedSecurityInfo {
         pub owner: PSID,
         pub group: PSID,
         pub security_descriptor: PSECURITY_DESCRIPTOR,
+    }
+
+    impl NamedSecurityInfo {
+        
+    /// Look up the character count of the username and domain name
+    /// so that we can construct buffers of adequate size.
+    /// 
+    /// Returns `(username_character_count, domain_name_character_count)`
+    pub fn lookup_account_sid_buffer(&self) -> Result<(u32, u32), io::Error> {
+        let mut name_character_count = 0;
+        let mut domain_name_character_count = 0;
+        let return_value = unsafe {
+            LookupAccountSidW(
+                PCWSTR(std::ptr::null()), // Local computer
+                self.owner, // The SID we want to look up
+                PWSTR(std::ptr::null_mut()), // No buffer constructed yet
+                &mut name_character_count, // The number of characters we need to store in our username buffer
+                PWSTR(std::ptr::null_mut()), // No buffer constructed yet
+                &mut domain_name_character_count, // The number of characters we need to store in our domain buffer
+                std::ptr::null_mut() // Unused
+            )
+        };
+
+        if return_value == true {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "LookupAccountSidW suceeded with null buffers when it should have failed"));
+        }
+
+        if (name_character_count == 0) || (domain_name_character_count == 0) {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "SID was incorrect, causing domain/name count to return 0"));
+        }
+
+        Ok((name_character_count, domain_name_character_count))
+    }
+
+    /// Returns the (username, domain name) of the SID we give it.
+    pub fn lookup_account_sid(&self) -> Result<(String, String), io::Error> {
+        // Get the buffer sizes.
+        let (mut name_character_count, mut domain_name_character_count) = self.lookup_account_sid_buffer()?;
+
+        // Make the buffers.
+        let mut name_buffer = Vec::with_capacity(name_character_count as usize);
+        let mut domain_name_buffer = Vec::with_capacity(domain_name_character_count as usize);
+
+        let mut e_use = SidTypeUnknown;
+        let return_value = unsafe {
+            LookupAccountSidW(
+                PCWSTR(std::ptr::null()),
+                self.owner,
+                PWSTR(name_buffer.as_mut_ptr()),
+                &mut name_character_count,
+                PWSTR(domain_name_buffer.as_mut_ptr()),
+                &mut domain_name_character_count,
+                &mut e_use,
+            )
+        };
+
+        if return_value != true {
+            let error = unsafe { GetLastError() };
+            // TODO: FormatMessage
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, error.0.to_string()));
+        }
+
+        // Set the buffer lengths to the bytes written by LookupAccountSidW
+        unsafe {
+            name_buffer.set_len(name_character_count as usize);
+            domain_name_buffer.set_len(domain_name_character_count as usize);
+        }
+
+        Ok((
+            String::from_utf16_lossy(&name_buffer),
+            String::from_utf16_lossy(&domain_name_buffer),
+        ))
+    }
     }
     
     impl TryFrom<&Path> for NamedSecurityInfo {
