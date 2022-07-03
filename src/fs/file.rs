@@ -6,7 +6,9 @@ use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+#[cfg(unix)]
+use std::time::{Duration, UNIX_EPOCH};
 
 use log::*;
 
@@ -394,7 +396,7 @@ impl<'dir> File<'dir> {
 
     #[cfg(windows)]
     pub fn changed_time(&self) -> Option<SystemTime> {
-        return self.modified_time()
+        self.modified_time()
     }
 
     /// This file’s last accessed timestamp, if available on this platform.
@@ -583,17 +585,17 @@ mod ext_test {
 
     #[test]
     fn extension() {
-        assert_eq!(Some("dat".to_string()), File::ext(Path::new("fester.dat")))
+        assert_eq!(Some("dat".to_string()), File::ext(Path::new("fester.dat")));
     }
 
     #[test]
     fn dotfile() {
-        assert_eq!(Some("vimrc".to_string()), File::ext(Path::new(".vimrc")))
+        assert_eq!(Some("vimrc".to_string()), File::ext(Path::new(".vimrc")));
     }
 
     #[test]
     fn no_extension() {
-        assert_eq!(None, File::ext(Path::new("jarlsberg")))
+        assert_eq!(None, File::ext(Path::new("jarlsberg")));
     }
 }
 
@@ -605,27 +607,27 @@ mod filename_test {
 
     #[test]
     fn file() {
-        assert_eq!("fester.dat", File::filename(Path::new("fester.dat")))
+        assert_eq!("fester.dat", File::filename(Path::new("fester.dat")));
     }
 
     #[test]
     fn no_path() {
-        assert_eq!("foo.wha", File::filename(Path::new("/var/cache/foo.wha")))
+        assert_eq!("foo.wha", File::filename(Path::new("/var/cache/foo.wha")));
     }
 
     #[test]
     fn here() {
-        assert_eq!(".", File::filename(Path::new(".")))
+        assert_eq!(".", File::filename(Path::new(".")));
     }
 
     #[test]
     fn there() {
-        assert_eq!("..", File::filename(Path::new("..")))
+        assert_eq!("..", File::filename(Path::new("..")));
     }
 
     #[test]
     fn everywhere() {
-        assert_eq!("..", File::filename(Path::new("./..")))
+        assert_eq!("..", File::filename(Path::new("./..")));
     }
 
     #[test]

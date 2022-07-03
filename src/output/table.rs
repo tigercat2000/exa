@@ -1,11 +1,14 @@
 use std::cmp::max;
-use std::env;
 use std::ops::Deref;
+#[cfg(unix)]
+use std::env;
 #[cfg(unix)]
 use std::sync::{Mutex, MutexGuard};
 
 use datetime::TimeZone;
-use zoneinfo_compiled::{CompiledData, Result as TZResult};
+#[cfg(unix)]
+use zoneinfo_compiled::CompiledData;
+use zoneinfo_compiled::{Result as TZResult};
 
 use lazy_static::lazy_static;
 use log::*;
@@ -161,7 +164,7 @@ impl Column {
     }
 
     #[cfg(windows)]
-    pub fn alignment(&self) -> Alignment {
+    pub fn alignment(self) -> Alignment {
         match self {
             Self::FileSize   |
             Self::GitStatus  => Alignment::Right,
@@ -197,7 +200,7 @@ impl Column {
 
 
 /// Formatting options for file sizes.
-#[allow(clippy::pub_enum_variant_names)]
+#[allow(clippy::enum_variant_names)]
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum SizeFormat {
 
@@ -357,6 +360,7 @@ fn determine_time_zone() -> TZResult<TimeZone> {
 }
 
 #[cfg(windows)]
+#[allow(clippy::unnecessary_wraps)]
 fn determine_time_zone() -> TZResult<TimeZone> {
     use datetime::zone::{FixedTimespan, FixedTimespanSet, StaticTimeZone, TimeZoneSource};
     use std::borrow::Cow;
@@ -370,7 +374,7 @@ fn determine_time_zone() -> TZResult<TimeZone> {
                 name: Cow::Borrowed("ZONE_A"),
             },
             rest: &[(
-                1206838800,
+                1_206_838_800,
                 FixedTimespan {
                     offset: 3600,
                     is_dst: false,
@@ -441,7 +445,7 @@ impl<'a, 'f> Table<'a> {
     }
 
     pub fn add_widths(&mut self, row: &Row) {
-        self.widths.add_widths(row)
+        self.widths.add_widths(row);
     }
 
     fn permissions_plus(&self, file: &File<'_>, xattrs: bool) -> f::PermissionsPlus {
