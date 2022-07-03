@@ -60,13 +60,13 @@ mod windows {
         /// so that we can construct buffers of adequate size.
         /// 
         /// Returns `(username_character_count, domain_name_character_count)`
-        pub fn lookup_account_sid_buffer(&self) -> Result<(u32, u32), io::Error> {
+        fn lookup_account_sid_buffer(&self, use_group: bool) -> Result<(u32, u32), io::Error> {
             let mut name_character_count = 0;
             let mut domain_name_character_count = 0;
             let return_value = unsafe {
                 LookupAccountSidW(
                     PCWSTR(std::ptr::null()), // Local computer
-                    self.owner, // The SID we want to look up
+                    if use_group { self.group} else { self.owner }, // The SID we want to look up
                     PWSTR(std::ptr::null_mut()), // No buffer constructed yet
                     &mut name_character_count, // The number of characters we need to store in our username buffer
                     PWSTR(std::ptr::null_mut()), // No buffer constructed yet
@@ -87,9 +87,9 @@ mod windows {
         }
 
         /// Returns the (username, domain name) of the SID we give it.
-        pub fn lookup_account_sid(&self) -> Result<(String, String), io::Error> {
+        pub fn lookup_account_sid(&self, use_group: bool) -> Result<(String, String), io::Error> {
             // Get the buffer sizes.
-            let (mut name_character_count, mut domain_name_character_count) = self.lookup_account_sid_buffer()?;
+            let (mut name_character_count, mut domain_name_character_count) = self.lookup_account_sid_buffer(use_group)?;
 
             // Make the buffers.
             let mut name_buffer = Vec::with_capacity(name_character_count as usize);
@@ -99,7 +99,7 @@ mod windows {
             let return_value = unsafe {
                 LookupAccountSidW(
                     PCWSTR(std::ptr::null()),
-                    self.owner,
+                    if use_group { self.group } else { self.owner },
                     PWSTR(name_buffer.as_mut_ptr()),
                     &mut name_character_count,
                     PWSTR(domain_name_buffer.as_mut_ptr()),
@@ -305,12 +305,19 @@ pub enum Blocks {
 pub struct User(pub uid_t);
 
 #[cfg(windows)]
+/// On Windows, this holds ownership of a `PSECURITY_DESCRIPTOR` with pointers into it
+/// for further API calls down the line.
 pub struct User(pub NamedSecurityInfo);
 
+#[cfg(unix)]
 /// The ID of the group that a file belongs to.
 #[derive(Copy, Clone)]
 pub struct Group(pub gid_t);
 
+#[cfg(windows)]
+/// On Windows, this holds ownership of a `PSECURITY_DESCRIPTOR` with pointers into it
+/// for further API calls down the line.
+pub struct Group(pub NamedSecurityInfo);
 
 /// A file’s size, in bytes. This is usually formatted by the `number_prefix`
 /// crate into something human-readable.

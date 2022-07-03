@@ -91,7 +91,6 @@ impl Columns {
         }
 
         if self.group {
-            #[cfg(unix)]
             columns.push(Column::Group);
         }
 
@@ -129,7 +128,6 @@ pub enum Column {
     #[cfg(unix)]
     Blocks,
     User,
-    #[cfg(unix)]
     Group,
     #[cfg(unix)]
     HardLinks,
@@ -185,7 +183,6 @@ impl Column {
             #[cfg(unix)]
             Self::Blocks        => "Blocks",
             Self::User          => "User",
-            #[cfg(unix)]
             Self::Group         => "Group",
             #[cfg(unix)]
             Self::HardLinks     => "Links",
@@ -486,23 +483,31 @@ impl<'a, 'f> Table<'a> {
             Column::Blocks => {
                 file.blocks().render(self.theme)
             }
+            #[cfg(unix)]
             Column::User => {
-                #[cfg(unix)]
-                let render = { file.user().render(self.theme, &*self.env.lock_users(), self.user_format) };
-                #[cfg(windows)]
-                let render = {
-                    let user = file.user();
-                    if let Ok(user) = user {
-                        user.render(self.theme, self.user_format)
-                    } else {
-                        TextCell::blank(ansi_term::Colour::Red.bold())
-                    }
-                };
-                render
+                file.user().render(self.theme, &*self.env.lock_users(), self.user_format)
+            }
+            #[cfg(windows)]
+            Column::User => {
+                let user = file.user();
+                if let Ok(user) = user {
+                    user.render(self.theme, self.user_format)
+                } else {
+                    TextCell::blank(ansi_term::Colour::Red.bold())
+                }
             }
             #[cfg(unix)]
             Column::Group => {
                 file.group().render(self.theme, &*self.env.lock_users(), self.user_format)
+            }
+            #[cfg(windows)]
+            Column::Group => {
+                let group = file.group();
+                if let Ok(group) = group {
+                    group.render(self.theme, self.user_format)
+                } else {
+                    TextCell::blank(ansi_term::Colour::Red.bold())
+                }
             }
             Column::GitStatus => {
                 self.git_status(file).render(self.theme)

@@ -12,6 +12,11 @@ mod groups;
 #[cfg(unix)]
 pub use self::groups::Colours as GroupColours;
 
+#[cfg(windows)]
+mod groups_windows;
+#[cfg(windows)]
+pub use self::groups_windows::Colours as GroupColours;
+
 mod inode;
 // inode uses just one colour
 

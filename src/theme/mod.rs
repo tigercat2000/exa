@@ -229,7 +229,6 @@ impl render::GitColours for Theme {
     fn conflicted(&self)    -> Style { self.ui.git.conflicted }
 }
 
-#[cfg(unix)]
 impl render::GroupColours for Theme {
     fn yours(&self)      -> Style { self.ui.users.group_yours }
     fn not_yours(&self)  -> Style { self.ui.users.group_not_yours }

@@ -329,6 +329,14 @@ impl<'dir> File<'dir> {
         f::Group(self.metadata.gid())
     }
 
+    /// The ID of the group that owns this file.
+    #[cfg(windows)]
+    pub fn group(&self) -> Result<f::Group, std::io::Error> {
+        use std::convert::TryInto;
+
+        Ok(f::Group(self.path.as_path().try_into()?))
+    }
+
     /// This file’s size, if it’s a regular file.
     ///
     /// For directories, no size is given. Although they do have a size on
