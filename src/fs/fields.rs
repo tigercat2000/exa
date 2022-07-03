@@ -15,6 +15,8 @@
 #![allow(non_camel_case_types)]
 #![allow(clippy::struct_excessive_bools)]
 
+use self::windows::NamedSecurityInfo;
+
 
 /// The type of a file’s block count.
 pub type blkcnt_t = u64;
@@ -31,9 +33,80 @@ pub type nlink_t = u64;
 /// The type of a file’s timestamp (creation, modification, access, etc).
 pub type time_t = i64;
 
+#[cfg(unix)]
 /// The type of a file’s user ID.
 pub type uid_t = u32;
 
+#[cfg(windows)]
+mod windows {
+    use std::convert::TryFrom;
+    use std::{path::Path, os::windows::prelude::OsStrExt};
+    use std::io;
+
+    use windows::{Win32::{Security::{PSECURITY_DESCRIPTOR, Authorization::{SE_OBJECT_TYPE, SE_FILE_OBJECT, GetNamedSecurityInfoW}, OWNER_SECURITY_INFORMATION, GROUP_SECURITY_INFORMATION}, Foundation::PSID, System::Memory::LocalFree}, core::PCWSTR};
+
+    pub struct NamedSecurityInfo {
+        pub owner: PSID,
+        pub group: PSID,
+        pub security_descriptor: PSECURITY_DESCRIPTOR,
+    }
+    
+    impl TryFrom<&Path> for NamedSecurityInfo {
+        type Error = std::io::Error;
+
+        fn try_from(p: &Path) -> Result<Self, Self::Error> {
+            let object_name: Vec<u16> = p.as_os_str().encode_wide().chain(Some(0)).collect();
+            let p_object_name = PCWSTR(object_name.as_ptr());
+            let object_type: SE_OBJECT_TYPE = SE_FILE_OBJECT;
+            let security_info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION;
+            let mut sid_owner = PSID(std::ptr::null_mut());
+            let mut sid_group = PSID(std::ptr::null_mut());
+            let mut security_descriptor = PSECURITY_DESCRIPTOR::default();
+
+            unsafe {
+                GetNamedSecurityInfoW(
+                    p_object_name, 
+                    object_type,
+                    security_info,
+                    &mut sid_owner,
+                    &mut sid_group,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    &mut security_descriptor);
+            }
+            
+
+            if sid_owner.is_invalid() {
+                return Err(io::Error::new(io::ErrorKind::NotFound, "Owner SID not found"));
+            }
+
+            if sid_group.is_invalid() {
+                return Err(io::Error::new(io::ErrorKind::NotFound, "Group SID not found"));
+            }
+
+            if security_descriptor.is_invalid() {
+                return Err(io::Error::new(io::ErrorKind::PermissionDenied, "Security Descriptor Inaccessible"));
+            }
+
+            Ok(
+                NamedSecurityInfo {
+                    owner: sid_owner,
+                    group: sid_group,
+                    security_descriptor,
+                }
+            )
+        }
+    }
+
+    impl Drop for NamedSecurityInfo {
+        fn drop(&mut self) {
+            unsafe {
+                LocalFree(self.security_descriptor.0 as isize);
+            }
+        }
+    }
+
+}
 
 /// The file’s base type, which gets displayed in the very first column of the
 /// details output.
@@ -149,10 +222,14 @@ pub enum Blocks {
 }
 
 
+#[cfg(unix)]
 /// The ID of the user that owns a file. This will only ever be a number;
 /// looking up the username is done in the `display` module.
 #[derive(Copy, Clone)]
 pub struct User(pub uid_t);
+
+#[cfg(windows)]
+pub struct User(pub NamedSecurityInfo);
 
 /// The ID of the group that a file belongs to.
 #[derive(Copy, Clone)]

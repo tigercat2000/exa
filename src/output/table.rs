@@ -84,7 +84,6 @@ impl Columns {
         }
 
         if self.user {
-            #[cfg(unix)]
             columns.push(Column::User);
         }
 
@@ -126,7 +125,6 @@ pub enum Column {
     Timestamp(TimeType),
     #[cfg(unix)]
     Blocks,
-    #[cfg(unix)]
     User,
     #[cfg(unix)]
     Group,
@@ -183,7 +181,6 @@ impl Column {
             Self::Timestamp(t)  => t.header(),
             #[cfg(unix)]
             Self::Blocks        => "Blocks",
-            #[cfg(unix)]
             Self::User          => "User",
             #[cfg(unix)]
             Self::Group         => "Group",
@@ -485,9 +482,19 @@ impl<'a, 'f> Table<'a> {
             Column::Blocks => {
                 file.blocks().render(self.theme)
             }
-            #[cfg(unix)]
             Column::User => {
-                file.user().render(self.theme, &*self.env.lock_users(), self.user_format)
+                #[cfg(unix)]
+                let render = { file.user().render(self.theme, &*self.env.lock_users(), self.user_format) };
+                #[cfg(windows)]
+                let render = {
+                    let user = file.user();
+                    if let Ok(user) = user {
+                        user.render(self.theme, self.user_format)
+                    } else {
+                        TextCell::blank(ansi_term::Colour::Red.bold())
+                    }
+                };
+                render
             }
             #[cfg(unix)]
             Column::Group => {

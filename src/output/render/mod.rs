@@ -33,5 +33,10 @@ mod users;
 #[cfg(unix)]
 pub use self::users::Colours as UserColours;
 
+#[cfg(windows)]
+mod users_windows;
+#[cfg(windows)]
+pub use self::users_windows::Colours as UserColours;
+
 mod octal;
 // octal uses just one colour

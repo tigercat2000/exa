@@ -309,8 +309,16 @@ impl<'dir> File<'dir> {
 
     /// The ID of the user that own this file.
     #[cfg(unix)]
-    pub fn user(&self) -> f::User {
-        f::User(self.metadata.uid())
+    pub fn user(&self) -> Result<f::User> {
+        Ok(f::User(self.metadata.uid()))
+    }
+
+    /// The ID of the user that own this file.
+    #[cfg(windows)]
+    pub fn user(&self) -> Result<f::User, std::io::Error> {
+        use std::convert::TryInto;
+
+        Ok(f::User(self.path.as_path().try_into()?))
     }
 
     /// The ID of the group that owns this file.

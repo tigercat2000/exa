@@ -5,7 +5,6 @@ use crate::fs::fields as f;
 use crate::output::cell::TextCell;
 use crate::output::table::UserFormat;
 
-
 impl f::User {
     pub fn render<C: Colours, U: Users>(self, colours: &C, users: &U, format: UserFormat) -> TextCell {
         let user_name = match (format, users.get_user_by_uid(self.0)) {
