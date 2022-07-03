@@ -65,8 +65,8 @@ mod windows {
             let mut domain_name_character_count = 0;
             let return_value = unsafe {
                 LookupAccountSidW(
-                    PCWSTR(std::ptr::null()), // Local computer
-                    if use_group { self.group} else { self.owner }, // The SID we want to look up
+                    None, // Local computer
+                    if use_group { self.group } else { self.owner }, // The SID we want to look up
                     PWSTR(std::ptr::null_mut()), // No buffer constructed yet
                     &mut name_character_count, // The number of characters we need to store in our username buffer
                     PWSTR(std::ptr::null_mut()), // No buffer constructed yet
@@ -98,7 +98,7 @@ mod windows {
             let mut e_use = SidTypeUnknown;
             let return_value = unsafe {
                 LookupAccountSidW(
-                    PCWSTR(std::ptr::null()),
+                    None,
                     if use_group { self.group } else { self.owner },
                     PWSTR(name_buffer.as_mut_ptr()),
                     &mut name_character_count,
